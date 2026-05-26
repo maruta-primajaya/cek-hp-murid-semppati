@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek Kesiapan Ujian Online</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+        h2 { color: #1a73e8; margin-bottom: 20px; }
+        input[type="text"], input[type="password"], select {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin-top: 15px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.3s;
+        }
+        button:hover { background-color: #1557b0; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        .admin-link {
+            display: block;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #6c757d;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .specs-box {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="page-home" class="page active">
+        <h2>Ujian Online - Cek Perangkat</h2>
+        <p>Aplikasi ini akan mengecek apakah HP Anda kompatibel dan siap untuk digunakan pada ujian online.</p>
+        <button onclick="showPage('page-identity')">Mulai Cek Kesiapan</button>
+        <a class="admin-link" onclick="showPage('page-admin-login')">Masuk sebagai Admin</a>
+    </div>
+
+    <div id="page-identity" class="page">
+        <h2>Data Diri Siswa</h2>
+        <input type="text" id="namaSiswa" placeholder="Nama Lengkap" required>
+        <input type="text" id="kelasSiswa" placeholder="Kelas (Contoh: X IPA 1)" required>
+        <button onclick="prosesIdentitas()">Lanjut</button>
+        <button class="btn-secondary" onclick="showPage('page-home')">Kembali</button>
+    </div>
+
+    <div id="page-check" class="page">
+        <h2>Pengecekan Sistem</h2>
+        <div class="specs-box" id="specs-result">
+            Mendeteksi perangkat keras...
+        </div>
+        <p style="text-align: left; font-size: 14px;"><strong>Pengecekan Manual (Wajib Diisi):</strong></p>
+        <select id="baterai">
+            <option value="">-- Kondisi Baterai Saat Ini? --</option>
+            <option value="Aman (>50%)">Di atas 50%</option>
+            <option value="Kurang (<50%)">Di bawah 50%</option>
+        </select>
+        <select id="layar">
+            <option value="">-- Layar Sentuh Berfungsi? --</option>
+            <option value="Normal">Ya, Normal</option>
+            <option value="Bermasalah">Tidak / Ada Retak Parah</option>
+        </select>
+        <button onclick="simpanDataSiswa()">Kirim & Selesaikan Tes</button>
+    </div>
+
+    <div id="page-success" class="page">
+        <h2>Pengecekan Selesai!</h2>
+        <p>Terima kasih. Data perangkat Anda telah dikirim dan dicatat oleh sistem.</p>
+        <p id="status-kompatibel" style="font-weight: bold;"></p>
+        <button class="btn-secondary" onclick="showPage('page-home')">Kembali ke Menu Awal</button>
+    </div>
+
+    <div id="page-admin-login" class="page">
+        <h2>Akses Admin</h2>
+        <input type="password" id="adminPass" placeholder="Masukkan Password Admin">
+        <button onclick="loginAdmin()">Masuk</button>
+        <button class="btn-secondary" onclick="showPage('page-home')">Kembali</button>
+    </div>
+
+    <div id="page-admin-dashboard" class="page">
+        <h2>Data Siswa</h2>
+        <p>Total data tersimpan: <span id="totalData">0</span> siswa</p>
+        <button onclick="downloadCSV()">Download Excel / CSV</button>
+        <button class="btn-secondary" onclick="hapusData()">Hapus Semua Data</button>
+        <button class="btn-secondary" onclick="showPage('page-home')">Keluar Admin</button>
+    </div>
+</div>
+
+<script>
+    // Menyimpan data siswa di LocalStorage Browser
+    let dataSiswa = JSON.parse(localStorage.getItem('dataUjianSiswa')) || [];
+    let currentSiswa = {};
+
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+    }
+
+    function prosesIdentitas() {
+        const nama = document.getElementById('namaSiswa').value;
+        const kelas = document.getElementById('kelasSiswa').value;
+        
+        if(!nama || !kelas) {
+            alert('Mohon isi Nama dan Kelas terlebih dahulu!');
+            return;
+        }
+        
+        currentSiswa.nama = nama;
+        currentSiswa.kelas = kelas;
+        
+        // Deteksi Spesifikasi Otomatis
+        const ua = navigator.userAgent;
+        let os = "Tidak Diketahui";
+        if (ua.indexOf("Android") > -1) os = "Android";
+        else if (ua.indexOf("iPhone") > -1 || ua.indexOf("iPad") > -1) os = "iOS";
+        else if (ua.indexOf("Windows") > -1) os = "Windows";
+
+        const screenWidth = window.screen.width;
+        const screenHeight = window.screen.height;
+        const ram = navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'Tidak terbaca';
+
+        currentSiswa.os = os;
+        currentSiswa.resolusi = `${screenWidth}x${screenHeight}`;
+        currentSiswa.estimasiRAM = ram;
+
+        document.getElementById('specs-result').innerHTML = `
+            <strong>OS:</strong> ${os}<br>
+            <strong>Resolusi Layar:</strong> ${currentSiswa.resolusi}<br>
+            <strong>Estimasi RAM:</strong> ${ram}<br>
+            <strong>Browser:</strong> Mendukung Javascript
+        `;
+
+        showPage('page-check');
+    }
+
+    function simpanDataSiswa() {
+        const baterai = document.getElementById('baterai').value;
+        const layar = document.getElementById('layar').value;
+
+        if(!baterai || !layar) {
+            alert('Mohon lengkapi kuesioner pengecekan manual!');
+            return;
+        }
+
+        currentSiswa.baterai = baterai;
+        currentSiswa.layar = layar;
+        currentSiswa.waktu = new Date().toLocaleString('id-ID');
+        
+        // Logika sederhana penentuan kompatibilitas
+        let status = "KOMPATIBEL";
+        if(baterai.includes("Kurang") || layar.includes("Bermasalah")) {
+            status = "TIDAK KOMPATIBEL (Perlu Perhatian)";
+            document.getElementById('status-kompatibel').style.color = "red";
+        } else {
+            document.getElementById('status-kompatibel').style.color = "green";
+        }
+        currentSiswa.status = status;
+        document.getElementById('status-kompatibel').innerText = `Status: ${status}`;
+
+        dataSiswa.push(currentSiswa);
+        localStorage.setItem('dataUjianSiswa', JSON.stringify(dataSiswa));
+        
+        showPage('page-success');
+        
+        // Reset form
+        document.getElementById('namaSiswa').value = '';
+        document.getElementById('kelasSiswa').value = '';
+        document.getElementById('baterai').value = '';
+        document.getElementById('layar').value = '';
+    }
+
+    function loginAdmin() {
+        const pass = document.getElementById('adminPass').value;
+        if(pass === '1qazxsw2') {
+            document.getElementById('adminPass').value = '';
+            document.getElementById('totalData').innerText = dataSiswa.length;
+            showPage('page-admin-dashboard');
+        } else {
+            alert('Password Admin Salah!');
+        }
